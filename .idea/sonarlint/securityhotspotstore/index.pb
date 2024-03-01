@@ -125,3 +125,6 @@ lcommon/common-domain/src/main/java/com/food/ordering/system/domain/event/publis
 èorder-service/order-domain/order-application-service/src/main/java/com/food/ordering/system/order/service/domain/OrderCreateCommandHandler.java,e\2\e2d585421fd1d2de096e8084b53fe05a80fd3e16
 ø
 éorder-service/order-domain/order-application-service/src/main/java/com/food/ordering/system/order/service/domain/OrderTrackCommandHandler.java,d\2\d260f3fffd2e4062ff6c836e18945083b245b438
+:
+
+.gitignore,a\5\a5cc2925ca8258af241be7e5b0381edf30266302
