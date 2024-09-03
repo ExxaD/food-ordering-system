@@ -13,10 +13,10 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 
+import static com.food.ordering.system.domain.DomainConstants.UTC;
+
 @Slf4j
 class OrderDomainServiceImpl implements OrderDomainService {
-
-    private static final ZoneId UTC_ZONE = ZoneId.of("UTC");
 
     @Override
     public OrderCreatedEvent validateAndInitiateOrder(Order order, Restaurant restaurant) {
@@ -25,14 +25,14 @@ class OrderDomainServiceImpl implements OrderDomainService {
         order.validateOrder();
         order.initializeOrder();
         log.info("Order with id: {} is initialized", order.getId().getValue());
-        return new OrderCreatedEvent(order, ZonedDateTime.now(UTC_ZONE));
+        return new OrderCreatedEvent(order, ZonedDateTime.now(ZoneId.of(UTC)));
     }
 
     @Override
     public OrderPaidEvent payOrder(Order order) {
         order.pay();
         log.info("Order with id: {} is paid", order.getId().getValue());
-        return new OrderPaidEvent(order, ZonedDateTime.now(UTC_ZONE));
+        return new OrderPaidEvent(order, ZonedDateTime.now(ZoneId.of(UTC)));
     }
 
     @Override
@@ -45,7 +45,7 @@ class OrderDomainServiceImpl implements OrderDomainService {
     public OrderCanceledEvent cancelOrderPayment(Order order, List<String> failureMessages) {
         order.initCancel(failureMessages);
         log.info("Order payment is canceling for order id: {}", order.getId().getValue());
-        return new OrderCanceledEvent(order, ZonedDateTime.now(UTC_ZONE));
+        return new OrderCanceledEvent(order, ZonedDateTime.now(ZoneId.of(UTC)));
     }
 
     @Override
