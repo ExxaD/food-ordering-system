@@ -35,6 +35,9 @@
                     <image>
                         <name>${project.groupId}/customer.service:${project.version}</name>
                     </image>
+                    <docker>
+                        <host>//./pipe/dockerDesktopLinuxEngine</host>
+                    </docker>
                 </configuration>
                 <executions>
                     <execution>

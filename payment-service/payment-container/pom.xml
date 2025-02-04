@@ -44,6 +44,9 @@
                     <image>
                         <name>${project.groupId}/payment.service:${project.version}</name>
                     </image>
+                    <docker>
+                        <host>//./pipe/dockerDesktopLinuxEngine</host>
+                    </docker>
                 </configuration>
                 <executions>
                     <execution>

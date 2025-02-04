@@ -11,9 +11,6 @@
 
     <artifactId>order-container</artifactId>
 
-    <properties>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>com.food.ordering.system</groupId>
@@ -50,6 +47,9 @@
                     <image>
                         <name>${project.groupId}/order.service:${project.version}</name>
                     </image>
+                    <docker>
+                        <host>//./pipe/dockerDesktopLinuxEngine</host>
+                    </docker>
                 </configuration>
                 <executions>
                     <execution>
