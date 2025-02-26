@@ -46,6 +46,7 @@ class PaymentDomainServiceImpl implements PaymentDomainService {
                     paymentCompletedEventDomainEventPublisher);
         } else {
             log.info("Payment initiation is failed for order id: {}", payment.getOrderId().getValue());
+            payment.updateStatus(PaymentStatus.FAILED);
             return new PaymentFailedEvent(payment, ZonedDateTime.now(ZoneId.of(UTC)), failureMessages,
                     paymentFailedEventDomainEventPublisher);
         }
@@ -66,7 +67,7 @@ class PaymentDomainServiceImpl implements PaymentDomainService {
 
         if (failureMessages.isEmpty()) {
             log.info("Payment is cancelled for order id: {}", payment.getOrderId().getValue());
-            payment.updateStatus(PaymentStatus.CANCELED);
+            payment.updateStatus(PaymentStatus.CANCELLED);
             return new PaymentCancelledEvent(payment, ZonedDateTime.now(ZoneId.of(UTC)),
                     paymentCancelledEventDomainEventPublisher);
         } else {

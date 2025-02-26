@@ -71,6 +71,7 @@ public class PaymentMessagingDataMapper {
                 .orderId(paymentRequestAvroModel.getOrderId())
                 .createdAt(paymentRequestAvroModel.getCreatedAt())
                 .paymentOrderStatus(PaymentOrderStatus.valueOf(paymentRequestAvroModel.getPaymentOrderStatus().name()))
+                .price(paymentRequestAvroModel.getPrice())
                 .build();
         }
 }
