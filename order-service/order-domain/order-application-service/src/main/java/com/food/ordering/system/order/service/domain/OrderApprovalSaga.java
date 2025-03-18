@@ -1,45 +1,149 @@
 package com.food.ordering.system.order.service.domain;
 
-import com.food.ordering.system.domain.event.EmptyEvent;
+import com.food.ordering.system.domain.valueobject.OrderStatus;
 import com.food.ordering.system.order.service.domain.dto.message.RestaurantApprovalResponse;
 import com.food.ordering.system.order.service.domain.entity.Order;
 import com.food.ordering.system.order.service.domain.event.OrderCanceledEvent;
-import com.food.ordering.system.order.service.domain.ports.output.message.publisher.payment.OrderCanceledPaymentRequestMessagePublisher;
+import com.food.ordering.system.order.service.domain.exception.OrderDomainException;
+import com.food.ordering.system.order.service.domain.mapper.OrderDataMapper;
+import com.food.ordering.system.order.service.domain.outbox.model.approval.OrderApprovalOutboxMessage;
+import com.food.ordering.system.order.service.domain.outbox.model.payment.OrderPaymentOutboxMessage;
+import com.food.ordering.system.order.service.domain.outbox.scheduler.approval.ApprovalOutboxHelper;
+import com.food.ordering.system.order.service.domain.outbox.scheduler.payment.PaymentOutboxHelper;
+import com.food.ordering.system.outbox.OutboxStatus;
+import com.food.ordering.system.saga.SagaStatus;
 import com.food.ordering.system.saga.SagaStep;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.Optional;
+import java.util.UUID;
+
+import static com.food.ordering.system.domain.DomainConstants.UTC;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class OrderApprovalSaga implements SagaStep<RestaurantApprovalResponse, EmptyEvent, OrderCanceledEvent> {
+public class OrderApprovalSaga implements SagaStep<RestaurantApprovalResponse> {
 
     private final OrderDomainService orderDomainService;
     private final OrderSagaHelper orderSagaHelper;
-    private final OrderCanceledPaymentRequestMessagePublisher orderCanceledPaymentRequestMessagePublisher;
+    private final PaymentOutboxHelper paymentOutboxHelper;
+    private final ApprovalOutboxHelper approvalOutboxHelper;
+    private final OrderDataMapper orderDataMapper;
 
     @Override
     @Transactional
-    public EmptyEvent process(RestaurantApprovalResponse restaurantResponse) {
-        log.info("Approving order with id: {}", restaurantResponse.getOrderId());
-        Order order = orderSagaHelper.findOrder(restaurantResponse.getOrderId());
-        orderDomainService.approveOrder(order);
-        orderSagaHelper.saveOrder(order);
+    public void process(RestaurantApprovalResponse restaurantResponse) {
+
+        Optional<OrderApprovalOutboxMessage> orderApprovalOutboxMessageResponse =
+                approvalOutboxHelper.getApprovalOutboxMessageBySagaIdAndSagaStatus(
+                        UUID.fromString(restaurantResponse.getSagaId()),
+                        SagaStatus.PROCESSING);
+
+        if (orderApprovalOutboxMessageResponse.isEmpty()) {
+            log.info("An outbox message with saga id: {} is already processed!", restaurantResponse.getSagaId());
+            return;
+        }
+
+        OrderApprovalOutboxMessage orderApprovalOutboxMessage = orderApprovalOutboxMessageResponse.get();
+
+        Order order = approveOrder(restaurantResponse);
+
+        SagaStatus sagaStatus = orderSagaHelper.orderStatusToSagaStatus(order.getOrderStatus());
+
+        approvalOutboxHelper.save(
+                getUpdatedApprovalOutboxMessage(orderApprovalOutboxMessage, order.getOrderStatus(), sagaStatus));
+
+        paymentOutboxHelper.save(
+                getUpdatedPaymentOutboxMessage(restaurantResponse.getSagaId(), order.getOrderStatus(), sagaStatus));
+
         log.info("Order with id: {} is approved", restaurantResponse.getOrderId());
-        return EmptyEvent.INSTANCE;
     }
 
     @Override
     @Transactional
-    public OrderCanceledEvent rollback(RestaurantApprovalResponse restaurantResponse) {
+    public void rollback(RestaurantApprovalResponse restaurantResponse) {
+
+        Optional<OrderApprovalOutboxMessage> orderApprovalOutboxMessageResponse = approvalOutboxHelper
+                .getApprovalOutboxMessageBySagaIdAndSagaStatus(
+                        UUID.fromString(restaurantResponse.getSagaId()),
+                        SagaStatus.PROCESSING);
+
+        if (orderApprovalOutboxMessageResponse.isEmpty()) {
+            log.info("An outbox message with saga id: {} is already roll backed!", restaurantResponse.getSagaId());
+            return;
+        }
+
+        OrderApprovalOutboxMessage orderApprovalOutboxMessage = orderApprovalOutboxMessageResponse.get();
+
+        OrderCanceledEvent domainEvent = rollbackOrder(restaurantResponse);
+
+        SagaStatus sagaStatus = orderSagaHelper.orderStatusToSagaStatus(domainEvent.getOrder().getOrderStatus());
+
+        approvalOutboxHelper.save(
+                getUpdatedApprovalOutboxMessage(orderApprovalOutboxMessage, domainEvent.getOrder().getOrderStatus(),
+                        sagaStatus));
+
+        paymentOutboxHelper.savePaymentOutboxMessage(
+                orderDataMapper.orderCanceledEventToOrderPaymentEventPayload(domainEvent),
+                domainEvent.getOrder().getOrderStatus(),
+                sagaStatus,
+                OutboxStatus.STARTED,
+                UUID.fromString(restaurantResponse.getSagaId()));
+
+        log.info("Order with id: {} is cancelling", domainEvent.getOrder().getId().getValue());
+    }
+
+    private Order approveOrder(RestaurantApprovalResponse restaurantResponse) {
+        log.info("Approving order with id: {}", restaurantResponse.getOrderId());
+        Order order = orderSagaHelper.findOrder(restaurantResponse.getOrderId());
+        orderDomainService.approveOrder(order);
+        orderSagaHelper.saveOrder(order);
+        return order;
+    }
+
+    private OrderApprovalOutboxMessage getUpdatedApprovalOutboxMessage(
+            OrderApprovalOutboxMessage orderApprovalOutboxMessage,
+            OrderStatus orderStatus,
+            SagaStatus sagaStatus) {
+
+        orderApprovalOutboxMessage.setProcessedAt(ZonedDateTime.now(ZoneId.of(UTC)));
+        orderApprovalOutboxMessage.setOrderStatus(orderStatus);
+        orderApprovalOutboxMessage.setSagaStatus(sagaStatus);
+
+        return orderApprovalOutboxMessage;
+    }
+
+    private OrderPaymentOutboxMessage getUpdatedPaymentOutboxMessage(String sagaId,
+                                                                     OrderStatus orderStatus,
+                                                                     SagaStatus sagaStatus) {
+
+        Optional<OrderPaymentOutboxMessage> orderPaymentOutboxMessageResponse = paymentOutboxHelper
+                .getPaymentOutboxMessageBySagaIdAndSagaStatus(UUID.fromString(sagaId), SagaStatus.PROCESSING);
+        if (orderPaymentOutboxMessageResponse.isEmpty()) {
+            throw new OrderDomainException("Payment outbox message cannot be found in " +
+                    SagaStatus.PROCESSING.name() + " state");
+        }
+        OrderPaymentOutboxMessage orderPaymentOutboxMessage = orderPaymentOutboxMessageResponse.get();
+        orderPaymentOutboxMessage.setProcessedAt(ZonedDateTime.now(ZoneId.of(UTC)));
+        orderPaymentOutboxMessage.setOrderStatus(orderStatus);
+        orderPaymentOutboxMessage.setSagaStatus(sagaStatus);
+
+        return orderPaymentOutboxMessage;
+    }
+
+    private OrderCanceledEvent rollbackOrder(RestaurantApprovalResponse restaurantResponse) {
         log.info("Cancelling order with id: {}", restaurantResponse.getOrderId());
         Order order = orderSagaHelper.findOrder(restaurantResponse.getOrderId());
         OrderCanceledEvent domainEvent = orderDomainService.cancelOrderPayment(
-                order, restaurantResponse.getFailureMessages(), orderCanceledPaymentRequestMessagePublisher);
+                order, restaurantResponse.getFailureMessages());
         orderSagaHelper.saveOrder(order);
-        log.info("Order with id: {} is cancelling", order.getId().getValue());
+
         return domainEvent;
     }
 }
