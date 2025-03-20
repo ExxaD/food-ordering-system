@@ -1,6 +1,5 @@
 package com.food.ordering.system.order.service.dataaccess.outbox.restaurantapproval.adapter;
 
-import com.food.ordering.system.order.service.dataaccess.outbox.restaurantapproval.exception.ApprovalOutboxNotFoundException;
 import com.food.ordering.system.order.service.dataaccess.outbox.restaurantapproval.mapper.ApprovalOutboxDataAccessMapper;
 import com.food.ordering.system.order.service.dataaccess.outbox.restaurantapproval.repository.ApprovalOutboxJpaRepository;
 import com.food.ordering.system.order.service.domain.outbox.model.approval.OrderApprovalOutboxMessage;
@@ -10,10 +9,7 @@ import com.food.ordering.system.saga.SagaStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Component
@@ -37,8 +33,7 @@ public class ApprovalOutboxRepositoryImpl implements ApprovalOutboxRepository {
                                                                                             SagaStatus... sagaStatuses) {
         return Optional.of(approvalOutboxJpaRepository.findByTypeAndOutboxStatusAndSagaStatusIn(
                         sagaType, outboxStatus, Arrays.asList(sagaStatuses))
-                .orElseThrow(() -> new ApprovalOutboxNotFoundException("Approval outbox object " +
-                        "could not be found for saga type " + sagaType))
+                .orElse(Collections.emptyList())
                 .stream()
                 .map(approvalOutboxDataAccessMapper::approvalOutboxEntityToOrderApprovalOutboxMessage)
                 .collect(Collectors.toList()));

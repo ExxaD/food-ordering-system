@@ -1,6 +1,5 @@
 package com.food.ordering.system.order.service.dataaccess.outbox.payment.adapter;
 
-import com.food.ordering.system.order.service.dataaccess.outbox.payment.exception.PaymentOutboxNotFoundException;
 import com.food.ordering.system.order.service.dataaccess.outbox.payment.mapper.PaymentOutboxDataAccessMapper;
 import com.food.ordering.system.order.service.dataaccess.outbox.payment.repository.PaymentOutboxJpaRepository;
 import com.food.ordering.system.order.service.domain.outbox.model.payment.OrderPaymentOutboxMessage;
@@ -10,10 +9,7 @@ import com.food.ordering.system.saga.SagaStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Component
@@ -37,8 +33,7 @@ public class PaymentOutboxRepositoryImpl implements PaymentOutboxRepository {
                                                                                             SagaStatus... sagaStatuses) {
         return Optional.of(paymentOutboxJpaRepository.findByTypeAndOutboxStatusAndSagaStatusIn(
                         sagaType, outboxStatus, Arrays.asList(sagaStatuses))
-                .orElseThrow(() -> new PaymentOutboxNotFoundException("Payment outbox object " +
-                        "could not be found for saga type " + sagaType))
+                .orElse(Collections.emptyList())
                 .stream()
                 .map(paymentOutboxDataAccessMapper::paymentOutboxEntityToOrderPaymentOutboxMessage)
                 .collect(Collectors.toList()));
