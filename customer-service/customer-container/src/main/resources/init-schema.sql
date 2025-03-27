@@ -13,20 +13,6 @@ CREATE TABLE customer.customers
     CONSTRAINT customers_pkey PRIMARY KEY (id)
 );
 
-DROP MATERIALIZED VIEW IF EXISTS customer.order_customer_m_view;
-
-CREATE MATERIALIZED VIEW customer.order_customer_m_view
-    TABLESPACE pg_default
-AS
-SELECT id,
-       username,
-       first_name,
-       last_name
-FROM customer.customers
-WITH DATA;
-
-REFRESH MATERIALIZED VIEW customer.order_customer_m_view;
-
 CREATE OR REPLACE FUNCTION customer.refresh_order_customer_m_view()
     RETURNS TRIGGER
 AS
