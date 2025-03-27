@@ -32,7 +32,7 @@ public class PaymentOutboxScheduler implements OutboxScheduler {
                 .getPaymentOutboxMessageByOutboxStatusAndSagaStatus(
                         OutboxStatus.STARTED,
                         SagaStatus.STARTED,
-                        SagaStatus.COMPENSATED);
+                        SagaStatus.COMPENSATING);
 
         if (outboxMessagesResponse.isPresent() && !outboxMessagesResponse.get().isEmpty()) {
             List<OrderPaymentOutboxMessage> outboxMessages = outboxMessagesResponse.get();

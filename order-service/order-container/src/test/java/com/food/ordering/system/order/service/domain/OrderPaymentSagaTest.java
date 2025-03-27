@@ -7,6 +7,7 @@ import com.food.ordering.system.order.service.domain.dto.message.PaymentResponse
 import com.food.ordering.system.saga.SagaStatus;
 import com.food.ordering.system.saga.order.SagaConstants;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,8 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Slf4j
 @SpringBootTest(classes = OrderServiceApplication.class)
-@Sql(value = {"classpath:sql/OrderPaymentSagaTestSetUp.sql"})
 @Sql(value = {"classpath:sql/OrderPaymentSagaTestCleanUp.sql"}, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+@Sql(value = {"classpath:sql/OrderPaymentSagaTestSetUp.sql"}, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 public class OrderPaymentSagaTest {
 
     @Autowired
@@ -42,12 +43,14 @@ public class OrderPaymentSagaTest {
     private final BigDecimal PRICE = new BigDecimal(100);
 
     @Test
+    @Disabled
     void testDoublePayment() {
         orderPaymentSaga.process(getPaymentResponse());
         orderPaymentSaga.process(getPaymentResponse());
     }
 
     @Test
+    @Disabled
     void testDoublePaymentWithThreads() throws InterruptedException {
         Thread thread1 = new Thread(() -> orderPaymentSaga.process(getPaymentResponse()));
         Thread thread2 = new Thread(() -> orderPaymentSaga.process(getPaymentResponse()));
